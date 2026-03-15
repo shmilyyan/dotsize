@@ -45,8 +45,13 @@ export function useCamera() {
 
   /**
    * 拍照
+   * @param videoElement 视频元素
+   * @param cssFilter 可选的CSS滤镜字符串
    */
-  const takePhoto = async (videoElement: HTMLVideoElement): Promise<Blob | null> => {
+  const takePhoto = async (
+    videoElement: HTMLVideoElement,
+    cssFilter: string = 'none'
+  ): Promise<Blob | null> => {
     if (!videoElement.videoWidth) return null
 
     const canvas = document.createElement('canvas')
@@ -64,6 +69,11 @@ export function useCamera() {
         ctx.translate(canvas.width, 0)
         ctx.scale(-1, 1)
       }
+    }
+
+    // 应用滤镜
+    if (cssFilter && cssFilter !== 'none') {
+      ctx.filter = cssFilter
     }
 
     ctx.drawImage(videoElement, 0, 0)

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useImageStore } from '@/stores/image'
 import { useCamera } from '@/composables/useCamera'
 import { useImageProcessor } from '@/composables/useImageProcessor'
+import { useBeautyFilter } from '@/composables/useBeautyFilter'
 import { templatesByCategory as defaultTemplatesByCategory } from '@/constants/sizeTemplates'
 import CustomSizeDialog from '@/components/CustomSizeDialog.vue'
 import type { SizeTemplate } from '@/types'
@@ -18,6 +19,9 @@ const { startCamera, takePhoto, stopCamera } = useCamera()
 
 // 图片处理相关
 const { cropToTemplate, isProcessing } = useImageProcessor()
+
+// 美颜滤镜
+const { currentFilter, presetFilters } = useBeautyFilter()
 
 // 状态
 const mode = computed(() => route.query.mode as string || 'select')
@@ -72,7 +76,7 @@ onUnmounted(() => {
 // 拍照
 const handleTakePhoto = async () => {
   if (!videoRef.value) return
-  const blob = await takePhoto(videoRef.value)
+  const blob = await takePhoto(videoRef.value, currentFilter.value.cssFilter)
   if (blob) {
     imageStore.setOriginal(blob)
     showCamera.value && stopCamera()
@@ -87,6 +91,13 @@ const handleSwitchCamera = async () => {
   currentFacing.value = currentFacing.value === 'user' ? 'environment' : 'user'
   await startCamera(videoRef.value, currentFacing.value)
 }
+
+// 监听滤镜变化，实时应用到视频
+watch(currentFilter, () => {
+  if (videoRef.value) {
+    videoRef.value.style.filter = currentFilter.value.cssFilter === 'none' ? '' : currentFilter.value.cssFilter
+  }
+})
 
 // 选择尺寸
 const handleSelectSize = (template: SizeTemplate) => {
@@ -160,6 +171,29 @@ const handleFileChange = (e: Event) => {
         playsinline
         muted
       ></video>
+
+      <!-- 滤镜选择 -->
+      <div class="absolute top-20 left-0 right-0 px-4">
+        <div class="bg-black/40 backdrop-blur rounded-2xl p-3">
+          <div class="flex gap-2 overflow-x-auto pb-1">
+            <button
+              v-for="filter in presetFilters"
+              :key="filter.id"
+              class="flex-shrink-0 text-center"
+              @click="currentFilter = filter"
+            >
+              <div
+                class="w-12 h-12 rounded-lg mb-1 transition-all overflow-hidden"
+                :class="currentFilter.id === filter.id ? 'ring-2 ring-white' : ''"
+                :style="{ filter: filter.cssFilter === 'none' ? 'none' : filter.cssFilter }"
+              >
+                <div class="w-full h-full bg-gradient-to-br from-pink-300 via-purple-300 to-blue-300"></div>
+              </div>
+              <span class="text-xs text-white">{{ filter.name }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- 摄像头控制 -->
       <div class="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent">
