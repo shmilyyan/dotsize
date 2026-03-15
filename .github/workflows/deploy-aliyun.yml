@@ -1,0 +1,129 @@
+name: Deploy DotSize to Aliyun
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  DEPLOY_PATH: '/var/www/html/dotsize'
+
+jobs:
+  # 构建任务
+  build:
+    runs-on: ubuntu-latest
+    name: Build Application
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build production
+        run: npm run build
+
+      - name: List build output
+        run: |
+          echo "Build output:"
+          ls -la dist/
+          du -sh dist/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  # 部署任务
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Deploy to Aliyun
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          port: ${{ secrets.ALIYUN_PORT || '22' }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          script: |
+            echo "=========================================="
+            echo "Starting deployment: $(date)"
+            echo "=========================================="
+
+            DEPLOY_PATH="${{ env.DEPLOY_PATH }}"
+            BACKUP_PATH="${DEPLOY_PATH}_backup_$(date +%Y%m%d_%H%M%S)"
+
+            echo "Step 1: Creating backup..."
+            if [ -d "$DEPLOY_PATH" ]; then
+              cp -r $DEPLOY_PATH $BACKUP_PATH
+              echo "Backup created at: $BACKUP_PATH"
+            fi
+
+            echo "Step 2: Stopping nginx..."
+            systemctl stop nginx || nginx -s stop || true
+
+            echo "Step 3: Cleaning old files..."
+            rm -rf $DEPLOY_PATH
+            mkdir -p $DEPLOY_PATH
+
+            echo "Step 4: Deploying new files..."
+            cp -r dist/* $DEPLOY_PATH/
+
+            echo "Step 5: Setting permissions..."
+            chown -R www-data:www-data $DEPLOY_PATH
+            chmod -R 755 $DEPLOY_PATH
+
+            echo "Step 6: Starting nginx..."
+            systemctl start nginx || nginx
+
+            echo "=========================================="
+            echo "Deployment completed: $(date)"
+            echo "=========================================="
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          port: ${{ secrets.ALIYUN_PORT || '22' }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          script: |
+            echo "Verifying deployment..."
+            ls -la ${{ env.DEPLOY_PATH }}
+            echo "Nginx status:"
+            systemctl status nginx --no-pager | head -10 || nginx -v
+
+      - name: Notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "Deployment successful!"
+            echo "Site URL: http://${{ secrets.ALIYUN_HOST }}/dotsize/"
+          else
+            echo "Deployment failed!"
+          fi
