@@ -7,7 +7,6 @@ on:
 
 env:
   NODE_VERSION: '20'
-  DEPLOY_PATH: '/srv/nginx/html/dotsize'
 
 jobs:
   build:
@@ -52,30 +51,19 @@ jobs:
           name: dist
           path: dist
 
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Deploy to server via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.ALIYUN_HOST }}
           port: 22
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: "dist/*"
+          target: "/srv/nginx/html/dotsize"
+          strip_components: 0
           command_timeout: 10m
-          script: |
-            echo "Deploying to $DEPLOY_PATH"
 
-            # Create directory if not exists
-            mkdir -p $DEPLOY_PATH
-
-            # Copy files
-            cp -r dist/* $DEPLOY_PATH/
-
-            # Set permissions
-            chmod -R 755 $DEPLOY_PATH
-
-            echo "Deployment completed!"
-            ls -la $DEPLOY_PATH
-
-      - name: Verify
+      - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.ALIYUN_HOST }}
@@ -83,5 +71,5 @@ jobs:
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
           script: |
-            echo "Verification:"
-            ls -la /srv/nginx/html/dotsize/ | head -10
+            echo "Deployment verified!"
+            ls -la /srv/nginx/html/dotsize/
