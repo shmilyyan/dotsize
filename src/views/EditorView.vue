@@ -57,6 +57,9 @@ const handleCustomConfirm = (template: SizeTemplate) => {
 const exportFormat = ref<'jpeg' | 'png'>('jpeg')
 const exportQuality = ref(95)
 
+// 美颜滤镜选择器显示状态
+const showFilterSelector = ref(false)
+
 // 初始化
 onMounted(async () => {
   if (!imageStore.hasOriginal && !showCamera.value) {
@@ -172,29 +175,6 @@ const handleFileChange = (e: Event) => {
         muted
       ></video>
 
-      <!-- 滤镜选择 -->
-      <div class="absolute top-20 left-0 right-0 px-4">
-        <div class="bg-black/40 backdrop-blur rounded-2xl p-3">
-          <div class="flex gap-2 overflow-x-auto pb-1">
-            <button
-              v-for="filter in presetFilters"
-              :key="filter.id"
-              class="flex-shrink-0 text-center"
-              @click="currentFilter = filter"
-            >
-              <div
-                class="w-12 h-12 rounded-lg mb-1 transition-all overflow-hidden"
-                :class="currentFilter.id === filter.id ? 'ring-2 ring-white' : ''"
-                :style="{ filter: filter.cssFilter === 'none' ? 'none' : filter.cssFilter }"
-              >
-                <div class="w-full h-full bg-gradient-to-br from-pink-300 via-purple-300 to-blue-300"></div>
-              </div>
-              <span class="text-xs text-white">{{ filter.name }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       <!-- 摄像头控制 -->
       <div class="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent">
         <div class="flex justify-center items-center gap-8">
@@ -233,12 +213,49 @@ const handleFileChange = (e: Event) => {
       <div v-if="imageStore.originalUrl" class="mb-6">
         <img
           :src="imageStore.originalUrl"
+          :style="{ filter: currentFilter.cssFilter === 'none' ? '' : currentFilter.cssFilter }"
           class="w-full h-48 object-contain bg-gray-200 rounded-xl"
           alt="预览"
         />
         <p class="text-center text-sm text-gray-500 mt-2">
           {{ imageStore.originalSize }}
         </p>
+      </div>
+
+      <!-- 美颜滤镜 -->
+      <div v-if="imageStore.originalUrl" class="mb-6">
+        <div class="bg-white rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-medium text-gray-800">美颜</h3>
+            <button
+              class="text-sm text-primary"
+              @click="showFilterSelector = !showFilterSelector"
+            >
+              {{ showFilterSelector ? '收起' : '展开' }}
+            </button>
+          </div>
+          <div v-if="showFilterSelector" class="flex gap-2 overflow-x-auto pb-1">
+            <button
+              v-for="filter in presetFilters"
+              :key="filter.id"
+              class="flex-shrink-0 text-center"
+              @click="currentFilter = filter"
+            >
+              <div
+                class="w-14 h-14 rounded-lg mb-1 transition-all overflow-hidden"
+                :class="currentFilter.id === filter.id ? 'ring-2 ring-primary ring-offset-2' : ''"
+                :style="{ filter: filter.cssFilter === 'none' ? 'none' : filter.cssFilter }"
+              >
+                <div class="w-full h-full bg-gradient-to-br from-pink-300 via-purple-300 to-blue-300"></div>
+              </div>
+              <span class="text-xs text-gray-600">{{ filter.name }}</span>
+            </button>
+          </div>
+          <div v-else class="flex items-center gap-2 text-sm text-gray-500">
+            <span>当前：</span>
+            <span class="font-medium text-gray-700">{{ currentFilter.name }}</span>
+          </div>
+        </div>
       </div>
 
       <!-- 尺寸选择 -->
