@@ -60,7 +60,7 @@ jobs:
           password: ${{ secrets.ALIYUN_PASSWORD }}
           source: "dist/*"
           target: "/srv/nginx/html/dotsize"
-          strip_components: 0
+          strip_components: 1
           command_timeout: 10m
 
       - name: Verify deployment
