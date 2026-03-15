@@ -9,7 +9,7 @@ on:
 
 env:
   NODE_VERSION: '20'
-  DEPLOY_PATH: '/var/www/html/dotsize'
+  DEPLOY_PATH: '/srv/nginx/html/dotsize'
 
 jobs:
   # 构建任务
